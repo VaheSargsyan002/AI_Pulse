@@ -1,36 +1,64 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AI-Pulse Onboarder
 
-## Getting Started
+A document-powered AI chat assistant. Upload company PDFs, TXT, or Markdown files and chat with them using AI — per-document or across your entire knowledge base.
 
-First, run the development server:
+## Prerequisites
+
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed and running
+- A [Groq API key](https://console.groq.com) (free)
+
+## Setup
+
+**1. Clone the repository**
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone <repo-url>
+cd "AI-Pulse Onboarder"
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+**2. Create the `.env` file** in the project root:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```env
+DATABASE_URL=postgresql://ecrud:ecrud_pass@postgres:5432/aipulse
+GROQ_API_KEY=your_groq_api_key_here
+PORT=5000
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+> Replace `your_groq_api_key_here` with your actual key from [console.groq.com](https://console.groq.com).
 
-## Learn More
+## Running the Project
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+docker compose up --build
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+This builds and starts three containers: the React frontend, the Node.js API server, and PostgreSQL. The database schema is created automatically on first run.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Once running, open your browser at:
 
-## Deploy on Vercel
+```
+http://localhost:5173
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Stopping the Project
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+docker compose down
+```
+
+To also delete the stored documents and database:
+
+```bash
+docker compose down -v
+```
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Frontend | React 18, TypeScript, Vite |
+| Backend | Node.js, Express, TypeScript |
+| Database | PostgreSQL + Drizzle ORM |
+| AI / LLM | Groq API (Llama 3.3 70B) |
+| Text Processing | LangChain text splitter, pdf-parse |
+| Infrastructure | Docker Compose |

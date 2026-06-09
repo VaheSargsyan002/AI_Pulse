@@ -1,0 +1,49 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:17
+    container_name: aipulse-postgres
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_USER: ecrud
+      POSTGRES_PASSWORD: ecrud_pass
+      POSTGRES_DB: aipulse
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  server:
+    build:
+      context: ./server
+
+    container_name: aipulse-server
+
+    restart: unless-stopped
+
+    env_file:
+      - .env
+
+    ports:
+      - "5000:5000"
+
+    depends_on:
+      - postgres
+
+  client:
+    build:
+      context: ./client
+
+    container_name: aipulse-client
+
+    restart: unless-stopped
+
+    ports:
+      - "5173:5173"
+
+    depends_on:
+      - server
+
+volumes:
+  postgres_data:
