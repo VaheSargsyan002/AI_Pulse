@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
 import { MessageSquare } from "lucide-react";
+import { useDocuments } from "../hooks/useDocuments";
 import ChatInterface from "../components/ChatInterface";
 
 const SUGGESTIONS = [
@@ -10,11 +10,7 @@ const SUGGESTIONS = [
 ];
 
 export default function GeneralChatPage() {
-  const [docCount, setDocCount] = useState(0);
-
-  useEffect(() => {
-    fetch("/api/documents").then(r => r.json()).then((d: unknown[]) => setDocCount(d.length)).catch(() => {});
-  }, []);
+  const { docs } = useDocuments();
 
   return (
     <div className="main">
@@ -26,7 +22,7 @@ export default function GeneralChatPage() {
           <>
             <MessageSquare size={15} color="var(--accent)" />
             <span className="chat-header-title">All Documents Chat</span>
-            {docCount > 0 && <span className="chat-header-badge">{docCount} document{docCount !== 1 ? "s" : ""}</span>}
+            {docs.length > 0 && <span className="chat-header-badge">{docs.length} document{docs.length !== 1 ? "s" : ""}</span>}
           </>
         }
       />
