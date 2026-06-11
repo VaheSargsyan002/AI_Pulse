@@ -1,9 +1,5 @@
-import Groq from "groq-sdk";
-
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-
-interface Message { role: "user" | "assistant"; content: string; }
-export interface DocSummary { name: string; chunks: string[]; }
+import { groq } from "../config/groq";
+import type { Message, DocSummary } from "../types";
 
 export async function generalAgent(query: string, docs: DocSummary[], history: Message[]) {
   const context = docs
@@ -17,7 +13,8 @@ export async function generalAgent(query: string, docs: DocSummary[], history: M
     messages: [
       {
         role: "system",
-        content: "You are an AI Onboarding Assistant with access to multiple company documents. Answer using only the provided context. Cite document names. Use markdown formatting where helpful.",
+        content:
+          "You are an AI Onboarding Assistant with access to multiple company documents. Answer using only the provided context. Cite document names. Use markdown formatting where helpful.",
       },
       ...history,
       {

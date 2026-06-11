@@ -1,8 +1,5 @@
-import Groq from "groq-sdk";
-
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-
-interface Message { role: "user" | "assistant"; content: string; }
+import { groq } from "../config/groq";
+import type { Message } from "../types";
 
 export async function synthesisAgent(
   query: string,

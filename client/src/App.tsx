@@ -8,12 +8,15 @@ import GeneralChatPage from "./pages/GeneralChatPage";
 import "./index.css";
 
 export default function App() {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth > 768);
 
   return (
     <BrowserRouter>
       <div className={`app${sidebarOpen ? "" : " sidebar-closed"}`}>
         <Sidebar />
+        {sidebarOpen && (
+          <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />
+        )}
         <div className="main-wrapper">
           <button
             className="sidebar-toggle"
