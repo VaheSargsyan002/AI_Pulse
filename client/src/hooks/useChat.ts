@@ -1,25 +1,34 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import type { ChatMessage } from "../types";
 
+const memoryCache = new Map<string, ChatMessage[]>();
+
 export function useChat(
   apiEndpoint: string,
   documentId?: string,
   extraBody: Record<string, unknown> = {}
 ) {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const cacheKey = documentId ?? apiEndpoint;
+  const [messages, setMessages] = useState<ChatMessage[]>(() => memoryCache.get(cacheKey) ?? []);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
   const extraBodyRef = useRef(extraBody);
   extraBodyRef.current = extraBody;
 
   useEffect(() => {
-    if (!documentId) return;
-    setMessages([]);
-    fetch(`/api/chat/session?documentId=${documentId}`)
+    if (messages.length > 0) memoryCache.set(cacheKey, messages);
+  }, [cacheKey, messages]);
+
+  useEffect(() => {
+    if ((memoryCache.get(cacheKey)?.length ?? 0) > 0) return;
+    const url = documentId
+      ? `/api/chat/session?documentId=${documentId}`
+      : `/api/chat/general/session`;
+    fetch(url)
       .then(r => (r.ok ? r.json() : null))
       .then(data => { if (data?.messages?.length) setMessages(data.messages); })
       .catch(() => {});
-  }, [documentId]);
+  }, [cacheKey, documentId]);
 
   const send = useCallback(async (content: string) => {
     if (!content.trim() || streaming) return;

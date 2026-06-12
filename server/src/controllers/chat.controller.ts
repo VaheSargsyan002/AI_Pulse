@@ -75,3 +75,13 @@ export async function getChatSession(req: Request, res: Response) {
     res.status(500).json({ error: String(err) });
   }
 }
+
+export async function getGeneralChatSession(_req: Request, res: Response) {
+  try {
+    const session = await chatService.getGeneralSession();
+    res.json(session);
+  } catch (err) {
+    console.error("[GET /api/chat/general/session]", err);
+    res.status(500).json({ error: String(err) });
+  }
+}
