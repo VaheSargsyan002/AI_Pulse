@@ -2,7 +2,7 @@
   "name": "aipulse-onboarder",
   "version": "1.0.0",
   "scripts": {
-    "build": "cd client && npm install --include=dev && npm run build && cd ../server && npm install --include=dev && npm run build",
-    "start": "cd server && npm run start:prod"
+    "build": "cd client && npm install --include=dev && npm run build && cd ../server && npm install --include=dev && npm run db:push && npm run build",
+    "start": "node server/dist/index.js"
   }
 }
