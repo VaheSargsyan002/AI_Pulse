@@ -2,8 +2,9 @@ import { groq } from "../config/groq";
 import type { Message, DocSummary } from "../types";
 
 export async function generalAgent(query: string, docs: DocSummary[], history: Message[]) {
+  // FIX 3: use all chunks passed in (retrieval agent already selected the relevant ones)
   const context = docs
-    .map((d) => `=== ${d.name} ===\n${d.chunks.slice(0, 3).join("\n\n")}`)
+    .map((d) => `=== ${d.name} ===\n${d.chunks.join("\n\n")}`)
     .join("\n\n");
 
   return groq.chat.completions.create({

@@ -21,13 +21,15 @@ export function useChat(
 
   useEffect(() => {
     if ((memoryCache.get(cacheKey)?.length ?? 0) > 0) return;
+    const controller = new AbortController();
     const url = documentId
       ? `/api/chat/session?documentId=${documentId}`
       : `/api/chat/general/session`;
-    fetch(url)
+    fetch(url, { signal: controller.signal })
       .then(r => (r.ok ? r.json() : null))
       .then(data => { if (data?.messages?.length) setMessages(data.messages); })
-      .catch(() => {});
+      .catch(err => { if (err.name !== "AbortError") console.error(err); });
+    return () => controller.abort();
   }, [cacheKey, documentId]);
 
   const send = useCallback(async (content: string) => {
