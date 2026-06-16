@@ -16,7 +16,13 @@ app.use(express.json());
 app.use("/api/documents", documentRoutes);
 app.use("/api/chat", chatRoutes);
 
-app.get("/health", (_req, res) => res.json({ status: "ok", time: new Date().toISOString() }));
+app.get("/health", (_req, res) => {
+  try {
+    res.json({ status: "ok", time: new Date().toISOString() });
+  } catch (err) {
+    res.status(500).json({ status: "error" });
+  }
+});
 
 if (isProd) {
   const clientDist = path.join(__dirname, "../../client/dist");

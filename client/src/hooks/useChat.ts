@@ -1,7 +1,27 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import type { ChatMessage } from "../types";
 
+// Module-level store — survives component unmount/remount
 const memoryCache = new Map<string, ChatMessage[]>();
+const activeStreams = new Map<string, boolean>();
+const listeners = new Map<string, Set<() => void>>();
+
+function subscribe(key: string, cb: () => void): () => void {
+  if (!listeners.has(key)) listeners.set(key, new Set());
+  listeners.get(key)!.add(cb);
+  return () => listeners.get(key)?.delete(cb);
+}
+
+function setCache(key: string, msgs: ChatMessage[]) {
+  memoryCache.set(key, msgs);
+  listeners.get(key)?.forEach(cb => cb());
+}
+
+function setStreaming(key: string, value: boolean) {
+  if (value) activeStreams.set(key, true);
+  else activeStreams.delete(key);
+  listeners.get(key)?.forEach(cb => cb());
+}
 
 export function useChat(
   apiEndpoint: string,
@@ -9,16 +29,17 @@ export function useChat(
   extraBody: Record<string, unknown> = {}
 ) {
   const cacheKey = documentId ?? apiEndpoint;
-  const [messages, setMessages] = useState<ChatMessage[]>(() => memoryCache.get(cacheKey) ?? []);
+  const [, forceUpdate] = useState(0);
   const [input, setInput] = useState("");
-  const [streaming, setStreaming] = useState(false);
   const extraBodyRef = useRef(extraBody);
   extraBodyRef.current = extraBody;
 
+  // Re-render this component whenever the store notifies for this key
   useEffect(() => {
-    if (messages.length > 0) memoryCache.set(cacheKey, messages);
-  }, [cacheKey, messages]);
+    return subscribe(cacheKey, () => forceUpdate(n => n + 1));
+  }, [cacheKey]);
 
+  // Load session from DB on first mount if cache is empty
   useEffect(() => {
     if ((memoryCache.get(cacheKey)?.length ?? 0) > 0) return;
     const controller = new AbortController();
@@ -27,24 +48,24 @@ export function useChat(
       : `/api/chat/general/session`;
     fetch(url, { signal: controller.signal })
       .then(r => (r.ok ? r.json() : null))
-      .then(data => { if (data?.messages?.length) setMessages(data.messages); })
+      .then(data => { if (data?.messages?.length) setCache(cacheKey, data.messages); })
       .catch(err => { if (err.name !== "AbortError") console.error(err); });
     return () => controller.abort();
   }, [cacheKey, documentId]);
 
   const send = useCallback(async (content: string) => {
-    if (!content.trim() || streaming) return;
+    if (!content.trim() || activeStreams.get(cacheKey)) return;
 
     const userMsg: ChatMessage = {
       role: "user",
       content: content.trim(),
       createdAt: new Date().toISOString(),
     };
-    const nextMessages = [...messages, userMsg];
+    const current = memoryCache.get(cacheKey) ?? [];
+    const nextMessages = [...current, userMsg];
 
-    setMessages([...nextMessages, { role: "assistant", content: "" }]);
-    setInput("");
-    setStreaming(true);
+    setCache(cacheKey, [...nextMessages, { role: "assistant", content: "" }]);
+    setStreaming(cacheKey, true);
 
     try {
       const res = await fetch(apiEndpoint, {
@@ -70,25 +91,29 @@ export function useChat(
             const { text } = JSON.parse(data);
             if (text) {
               acc += text;
-              setMessages(prev => {
-                const copy = [...prev];
-                copy[copy.length - 1] = { role: "assistant", content: acc };
-                return copy;
-              });
+              const msgs = memoryCache.get(cacheKey) ?? [];
+              const copy = [...msgs];
+              copy[copy.length - 1] = { role: "assistant", content: acc };
+              setCache(cacheKey, copy);
             }
           } catch { /* ignore partial JSON */ }
         }
       }
     } catch {
-      setMessages(prev => {
-        const copy = [...prev];
-        copy[copy.length - 1] = { role: "assistant", content: "Error generating response." };
-        return copy;
-      });
+      const msgs = memoryCache.get(cacheKey) ?? [];
+      const copy = [...msgs];
+      copy[copy.length - 1] = { role: "assistant", content: "Error generating response." };
+      setCache(cacheKey, copy);
     } finally {
-      setStreaming(false);
+      setStreaming(cacheKey, false);
     }
-  }, [messages, streaming, apiEndpoint, documentId]);
+  }, [cacheKey, apiEndpoint, documentId]);
 
-  return { messages, input, setInput, streaming, send };
+  return {
+    messages: memoryCache.get(cacheKey) ?? [],
+    input,
+    setInput,
+    streaming: activeStreams.get(cacheKey) ?? false,
+    send,
+  };
 }

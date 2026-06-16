@@ -18,17 +18,25 @@ export async function chatWithDocument(req: Request, res: Response) {
 
     setSseHeaders(res);
     let fullResponse = "";
+    let cancelled = false;
+    req.on("close", () => { cancelled = true; });
+
     for await (const chunk of stream) {
+      if (cancelled) break;
       const text = chunk.choices[0]?.delta?.content ?? "";
       if (text) {
         fullResponse += text;
         res.write(`data: ${JSON.stringify({ text })}\n\n`);
       }
     }
-    res.write("data: [DONE]\n\n");
-    res.end();
+    if (!cancelled) {
+      res.write("data: [DONE]\n\n");
+      res.end();
+    }
 
-    chatService.saveSession(documentId, doc.name, messages, fullResponse).catch(console.error);
+    if (fullResponse) {
+      chatService.saveSession(documentId, doc.name, messages, fullResponse).catch(console.error);
+    }
   } catch (err: any) {
     console.error("[POST /api/chat]", err);
     if (!res.headersSent)
@@ -46,17 +54,25 @@ export async function chatGeneral(req: Request, res: Response) {
 
     setSseHeaders(res);
     let fullResponse = "";
+    let cancelled = false;
+    req.on("close", () => { cancelled = true; });
+
     for await (const chunk of stream) {
+      if (cancelled) break;
       const text = chunk.choices[0]?.delta?.content ?? "";
       if (text) {
         fullResponse += text;
         res.write(`data: ${JSON.stringify({ text })}\n\n`);
       }
     }
-    res.write("data: [DONE]\n\n");
-    res.end();
+    if (!cancelled) {
+      res.write("data: [DONE]\n\n");
+      res.end();
+    }
 
-    chatService.saveGeneralSession(messages, fullResponse).catch(console.error);
+    if (fullResponse) {
+      chatService.saveGeneralSession(messages, fullResponse).catch(console.error);
+    }
   } catch (err: any) {
     console.error("[POST /api/chat/general]", err);
     if (!res.headersSent)
