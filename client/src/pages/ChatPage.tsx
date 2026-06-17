@@ -26,7 +26,7 @@ export default function ChatPage() {
         key={id}
         apiEndpoint="/api/chat"
         documentId={id}
-        extraBody={{ documentId: id }}
+        extraBody={{}}
         placeholder={`Ask a question about ${doc.name}…`}
         header={
           <>

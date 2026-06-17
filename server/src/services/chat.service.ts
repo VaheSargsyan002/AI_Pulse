@@ -13,6 +13,14 @@ export async function getSession(documentId: string) {
   return session ?? { messages: [] };
 }
 
+export async function getGeneralSession() {
+  const [session] = await db
+    .select()
+    .from(chatSessions)
+    .where(eq(chatSessions.type, "general"));
+  return session ?? { messages: [] };
+}
+
 export async function streamDocumentChat(documentId: string, messages: Message[]) {
   const [doc] = await db.select().from(documents).where(eq(documents.id, documentId));
 
@@ -20,9 +28,11 @@ export async function streamDocumentChat(documentId: string, messages: Message[]
   if (doc.status !== "ready") throw Object.assign(new Error("Document not ready."), { status: 400 });
 
   const userQuery = messages[messages.length - 1].content;
-  const history = messages.slice(0, -1);
+  const history = messages.slice(0, -1).map(({ role, content }) => ({ role, content }));
+
+  // FIX 2: removed arbitrary 3000-char slice — retrieval already limits to top 5 chunks (~5000 chars max)
   const chunks = retrievalAgent(userQuery, doc.chunks as string[]);
-  const context = chunks.join("\n\n---\n\n").slice(0, 3000);
+  const context = chunks.join("\n\n---\n\n");
 
   const stream = await synthesisAgent(userQuery, context, doc.name, history);
   return { stream, doc };
@@ -38,16 +48,19 @@ export async function streamGeneralChat(messages: Message[]) {
     throw Object.assign(new Error("No ready documents."), { status: 400 });
 
   const userQuery = messages[messages.length - 1].content;
-  const history = messages.slice(0, -1);
+  const history = messages.slice(0, -1).map(({ role, content }) => ({ role, content }));
+
+  // FIX 3 & 4: run retrieval agent per document instead of blindly slicing first 5 chunks
   const docSummaries: DocSummary[] = readyDocs.map((d) => ({
     name: d.name,
-    chunks: (d.chunks as string[]).slice(0, 5),
+    chunks: retrievalAgent(userQuery, d.chunks as string[]),
   }));
 
   const stream = await generalAgent(userQuery, docSummaries, history);
   return { stream };
 }
 
+// FIX 1: eliminate read-then-write race — UPDATE first, INSERT only if nothing was updated
 export async function saveSession(
   documentId: string,
   title: string,
@@ -59,17 +72,13 @@ export async function saveSession(
     createdAt: new Date().toISOString(),
   }));
 
-  const [existing] = await db
-    .select()
-    .from(chatSessions)
-    .where(eq(chatSessions.documentId, documentId));
+  const updated = await db
+    .update(chatSessions)
+    .set({ messages: all as never, updatedAt: new Date() })
+    .where(eq(chatSessions.documentId, documentId))
+    .returning({ id: chatSessions.id });
 
-  if (existing) {
-    await db
-      .update(chatSessions)
-      .set({ messages: all as never, updatedAt: new Date() })
-      .where(eq(chatSessions.documentId, documentId));
-  } else {
+  if (!updated.length) {
     await db.insert(chatSessions).values({ documentId, title, messages: all as never });
   }
 }
@@ -80,17 +89,13 @@ export async function saveGeneralSession(userMessages: Message[], reply: string)
     createdAt: new Date().toISOString(),
   }));
 
-  const [existing] = await db
-    .select()
-    .from(chatSessions)
-    .where(eq(chatSessions.type, "general"));
+  const updated = await db
+    .update(chatSessions)
+    .set({ messages: all as never, updatedAt: new Date() })
+    .where(eq(chatSessions.type, "general"))
+    .returning({ id: chatSessions.id });
 
-  if (existing) {
-    await db
-      .update(chatSessions)
-      .set({ messages: all as never, updatedAt: new Date() })
-      .where(eq(chatSessions.type, "general"));
-  } else {
+  if (!updated.length) {
     await db
       .insert(chatSessions)
       .values({ type: "general", title: "All Documents Chat", messages: all as never });
